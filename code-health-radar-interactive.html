@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Health Radar</title>
+<style>
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --ink: #17232f;
+  --muted: #5d6c7b;
+  --line: #d5dce3;
+  --accent: #1d6f8c;
+  --accent-soft: #dcecf2;
+  --good: #2c7a57;
+  --good-soft: #dff0e8;
+  --warn: #9a6a12;
+  --warn-soft: #f6ead0;
+  --bad: #b23a3a;
+  --bad-soft: #f6dddd;
+  --side: #17232f;
+  --side-ink: #d9e2ea;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11181f;
+    --panel: #1a242e;
+    --ink: #e6edf3;
+    --muted: #9aabbb;
+    --line: #2d3b49;
+    --accent: #5db4d1;
+    --accent-soft: #1f3a47;
+    --good: #5fc596;
+    --good-soft: #1b3a2d;
+    --warn: #e0b44f;
+    --warn-soft: #3d3216;
+    --bad: #ee7b7b;
+    --bad-soft: #3f2323;
+    --side: #0b1117;
+    --side-ink: #c4d0db;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 15px;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+.side { background: var(--side); color: var(--side-ink); padding: 24px 16px; position: sticky; top: 0; height: 100vh; }
+.brand { font-size: 18px; font-weight: 700; letter-spacing: .2px; padding: 0 10px 4px; color: #fff; }
+.brand-sub { font-size: 13px; padding: 0 10px 24px; color: var(--side-ink); opacity: .75; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav button {
+  background: none; border: 0; text-align: left; padding: 10px 12px; border-radius: 6px;
+  color: var(--side-ink); font-size: 15px;
+}
+.nav button:hover { background: rgba(255,255,255,.07); }
+.nav button[aria-current="page"] { background: var(--accent); color: #fff; font-weight: 600; }
+.side-note { position: absolute; bottom: 20px; left: 16px; right: 16px; font-size: 12.5px; opacity: .7; }
+
+main { padding: 28px 36px 60px; max-width: 1180px; width: 100%; }
+h1 { font-size: 26px; margin: 0 0 4px; line-height: 1.2; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+.lede { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; }
+.grid { display: grid; gap: 16px; }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g2 { grid-template-columns: 1.5fr 1fr; }
+.g2e { grid-template-columns: 1fr 1fr; }
+.mb { margin-bottom: 16px; }
+
+.kpi { padding: 16px 18px; }
+.kpi .n { font-size: 30px; font-weight: 700; line-height: 1.1; }
+.kpi .l { color: var(--muted); font-size: 13.5px; }
+.kpi .d { font-size: 13px; margin-top: 6px; }
+.up-bad { color: var(--bad); } .down-good { color: var(--good); }
+
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.pill.good { background: var(--good-soft); color: var(--good); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--accent-soft); }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 14px; font-size: 13.5px; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.back { background: none; border: 0; color: var(--accent); padding: 0; margin-bottom: 10px; font-size: 14px; text-decoration: underline; }
+
+.healthbar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; min-width: 70px; }
+.healthbar i { display: block; height: 100%; }
+.bar-row { display: grid; grid-template-columns: 110px 1fr 44px; gap: 10px; align-items: center; margin: 8px 0; font-size: 14px; }
+.bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+
+.kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+
+.botbox { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 16px 18px; background: var(--bg); font-size: 14px; }
+.botbox ul { margin: 6px 0 10px 18px; padding: 0; }
+.botbox li { margin: 4px 0; }
+.check { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; }
+.check span.box { width: 15px; height: 15px; border: 2px solid var(--muted); border-radius: 3px; flex: none; margin-top: 3px; }
+.check.on span.box { background: var(--warn); border-color: var(--warn); }
+
+#radar svg { width: 100%; height: auto; display: block; }
+#radar .pt { cursor: pointer; }
+#radar .pt:hover circle { stroke-width: 3; }
+#radar text { fill: var(--muted); font-size: 12px; font-family: inherit; }
+#radar .lbl { fill: var(--ink); font-size: 12px; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.legend b { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; }
+
+.note { background: var(--accent-soft); border-radius: 6px; padding: 10px 14px; font-size: 13.5px; }
+
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; padding: 14px; }
+  .side-note { display: none; }
+  .brand-sub { padding-bottom: 10px; }
+  .nav { flex-direction: row; flex-wrap: wrap; }
+  main { padding: 20px 16px 48px; }
+  .g4 { grid-template-columns: repeat(2, 1fr); }
+  .g2, .g2e { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">Code Health Radar</div>
+    <div class="brand-sub">Pilot: 8 repositories</div>
+    <nav class="nav" aria-label="Main">
+      <button data-view="overview" aria-current="page">Overview</button>
+      <button data-view="repos">Repositories</button>
+      <button data-view="mrs">Merge requests</button>
+      <button data-view="prs">Pull requests</button>
+      <button data-view="jenkins">Jenkins CI</button>
+      <button data-view="people">Ownership &amp; reviews</button>
+    </nav>
+    <div class="side-note">Sample data for a prototype. Team-level view, not for performance evaluation.</div>
+  </aside>
+  <main id="main" tabindex="-1"></main>
+</div>
+
+<script>
+/* ---------- Sample data (replace with API / database output) ---------- */
+const repos = [
+  { id:'payments-service', team:'Payments', lang:'Java', health:54, vuln:6, outdated:14, bus:1, single:11, last:'3 days ago', stale:false,
+    summary:'Handles card and bank-transfer payments, refunds and settlement files. Exposes a REST API used by the web portal and mobile app.',
+    stack:['Java 17','Spring Boot','PostgreSQL','Kafka'], modules:['api','settlement','refunds','ledger'], owners:[['A. Rahman',71],['S. Iyer',19],['M. Costa',10]], release:'Every 2 weeks' },
+  { id:'auth-gateway', team:'Platform', lang:'Go', health:81, vuln:1, outdated:4, bus:3, single:2, last:'1 day ago', stale:false,
+    summary:'Single sign-on and token gateway in front of internal services. Issues and validates short-lived access tokens.',
+    stack:['Go 1.22','Redis','OIDC'], modules:['tokens','sessions','policies'], owners:[['L. Novak',42],['T. Okafor',33],['R. Singh',25]], release:'Weekly' },
+  { id:'web-portal', team:'Frontend', lang:'TypeScript', health:68, vuln:3, outdated:22, bus:2, single:6, last:'Today', stale:false,
+    summary:'Customer-facing web application for account management, payments and reports.',
+    stack:['React 18','TypeScript','Vite','Playwright'], modules:['accounts','payments-ui','reports-ui','shared-components'], owners:[['P. Mehta',48],['J. Larsen',38],['K. Adeyemi',14]], release:'Daily' },
+  { id:'data-pipeline', team:'Data', lang:'Python', health:47, vuln:5, outdated:17, bus:1, single:14, last:'6 days ago', stale:false,
+    summary:'Nightly ETL jobs that load transactions and usage data into the warehouse for reporting.',
+    stack:['Python 3.9','Airflow','pandas','Snowflake'], modules:['extractors','transforms','dags','quality-checks'], owners:[['D. Petrov',78],['H. Banerjee',22]], release:'Ad hoc' },
+  { id:'notif-service', team:'Platform', lang:'Node.js', health:73, vuln:2, outdated:9, bus:2, single:4, last:'4 days ago', stale:false,
+    summary:'Sends email, SMS and push notifications from queued events, with templates and retry handling.',
+    stack:['Node 20','Express','RabbitMQ'], modules:['templates','channels','retry'], owners:[['T. Okafor',55],['E. Fischer',45]], release:'Every 2 weeks' },
+  { id:'legacy-reports', team:'Finance IT', lang:'Java', health:29, vuln:8, outdated:31, bus:1, single:19, last:'410 days ago', stale:true,
+    summary:'Monthly finance reports generated from stored procedures. No active owner team is recorded.',
+    stack:['Java 8','Struts','Oracle'], modules:['report-engine','exports','sql'], owners:[['V. Hall',92],['(former staff)',8]], release:'None in 14 months' },
+  { id:'mobile-app', team:'Mobile', lang:'Kotlin', health:76, vuln:1, outdated:6, bus:4, single:1, last:'2 days ago', stale:false,
+    summary:'Android and shared-core app for customers: payments, alerts and account views.',
+    stack:['Kotlin','Jetpack Compose','Retrofit'], modules:['ui','core','network'], owners:[['N. Alvarez',34],['Y. Tanaka',31],['B. Osei',20],['C. Dubois',15]], release:'Every 2 weeks' },
+  { id:'infra-modules', team:'Platform', lang:'Terraform', health:88, vuln:0, outdated:2, bus:4, single:0, last:'Today', stale:false,
+    summary:'Shared Terraform modules for networks, databases and clusters.',
+    stack:['Terraform','AWS'], modules:['network','database','cluster'], owners:[['R. Singh',30],['L. Novak',28],['M. Costa',22],['T. Okafor',20]], release:'Weekly' }
+];
+
+const depsByRepo = {
+  'payments-service': [
+    ['jackson-databind','2.12.3','2.17.1','CVE-2022-42003','High','Apache-2.0'],
+    ['spring-security-web','5.6.1','6.3.0','CVE-2023-34034','High','Apache-2.0'],
+    ['log4j-core','2.14.1','2.23.1','CVE-2021-44228','Critical','Apache-2.0'],
+    ['commons-io','2.8.0','2.16.1','CVE-2024-47554','Medium','Apache-2.0'],
+    ['hibernate-core','5.4.2','6.5.2','None','','LGPL-2.1']
+  ],
+  'data-pipeline': [
+    ['pandas','1.3.0','2.2.2','None','','BSD-3'],
+    ['requests','2.25.0','2.32.3','CVE-2023-32681','Medium','Apache-2.0'],
+    ['pyyaml','5.3','6.0.1','CVE-2020-14343','Critical','MIT'],
+    ['apache-airflow','2.2.0','2.9.3','CVE-2023-40195','High','Apache-2.0'],
+    ['urllib3','1.26.4','2.2.2','CVE-2023-43804','Medium','MIT']
+  ],
+  'legacy-reports': [
+    ['struts2-core','2.3.20','6.4.0','CVE-2017-5638','Critical','Apache-2.0'],
+    ['commons-collections','3.2.1','4.4','CVE-2015-7501','Critical','Apache-2.0'],
+    ['ojdbc8','12.2.0.1','23.4.0','None','','Oracle'],
+    ['poi','3.9','5.2.5','CVE-2019-12415','Medium','Apache-2.0']
+  ]
+};
+const defaultDeps = [
+  ['lodash','4.17.19','4.17.21','CVE-2021-23337','High','MIT'],
+  ['axios','0.21.1','1.7.2','CVE-2023-45857','Medium','MIT'],
+  ['express','4.17.1','4.19.2','None','','MIT']
+];
+
+const mrs = [
+  { id:1482, repo:'payments-service', title:'Add partial refund endpoint', author:'S. Iyer', reviewers:['A. Rahman'], files:14, add:420, del:63, level:'High', score:78, firstReview:19, state:'Open', age:'2 days',
+    deps:[['added','jackson-datatype-money','1.3.0','1 high'],['upgraded','spring-security-web','5.6.1 → 5.8.4','fixes 1 high']],
+    notes:['payments/refunds/RefundHandler.java: one contributor for 14 months','Change touches ledger code (high impact area)'], extra:['Security review required','Add a second reviewer'] },
+  { id:1479, repo:'web-portal', title:'Upgrade React Router to v6.23', author:'J. Larsen', reviewers:['P. Mehta','K. Adeyemi'], files:9, add:88, del:71, level:'Low', score:21, firstReview:3, state:'Merged', age:'4 days',
+    deps:[['upgraded','react-router-dom','6.14.0 → 6.23.1','no known issues']], notes:[], extra:[] },
+  { id:1477, repo:'data-pipeline', title:'Switch nightly load to incremental mode', author:'D. Petrov', reviewers:['H. Banerjee'], files:22, add:610, del:240, level:'High', score:84, firstReview:41, state:'Open', age:'5 days',
+    deps:[['upgraded','pyyaml','5.3 → 5.4','fixes 1 critical'],['added','tenacity','8.2.3','no known issues']],
+    notes:['Only 2 contributors have touched dags/ in 12 months','Largest change in this repo this quarter'], extra:['Add a second reviewer'] },
+  { id:1475, repo:'auth-gateway', title:'Reduce token lifetime to 15 minutes', author:'T. Okafor', reviewers:['L. Novak'], files:4, add:36, del:12, level:'Medium', score:46, firstReview:6, state:'Merged', age:'6 days',
+    deps:[], notes:['Config change affects all downstream services'], extra:['Notify dependent teams'] },
+  { id:1471, repo:'notif-service', title:'Retry failed SMS with backoff', author:'E. Fischer', reviewers:['T. Okafor'], files:7, add:150, del:20, level:'Low', score:27, firstReview:8, state:'Merged', age:'8 days',
+    deps:[['added','p-retry','6.2.0','no known issues']], notes:[], extra:[] },
+  { id:1468, repo:'legacy-reports', title:'Patch date format in month-end export', author:'V. Hall', reviewers:[], files:2, add:9, del:4, level:'Medium', score:52, firstReview:null, state:'Open', age:'11 days',
+    deps:[], notes:['No reviewer assigned','Repo has had no release in 14 months','1 critical dependency vulnerability open'], extra:['Assign a reviewer'] },
+  { id:1466, repo:'mobile-app', title:'Dark mode for account screens', author:'N. Alvarez', reviewers:['Y. Tanaka'], files:18, add:380, del:140, level:'Low', score:24, firstReview:5, state:'Merged', age:'9 days',
+    deps:[], notes:[], extra:[] },
+  { id:1463, repo:'infra-modules', title:'Add encryption default to database module', author:'M. Costa', reviewers:['R. Singh','L. Novak'], files:3, add:41, del:5, level:'Medium', score:39, firstReview:4, state:'Merged', age:'12 days',
+    deps:[], notes:['Existing databases will be replaced on next apply'], extra:['Plan review before apply'] }
+];
+
+const reviewLoad = [['A. Rahman',14],['T. Okafor',12],['L. Novak',10],['H. Banerjee',9],['P. Mehta',8],['R. Singh',7],['Y. Tanaka',5],['K. Adeyemi',3]];
+
+const prs = [
+  { id:312, repo:'payments-service', title:'Add partial refund endpoint', author:'S. Iyer', reviewers:['A. Rahman'], files:14, add:420, del:63, level:'High', score:78, firstReview:19, state:'Open', age:'2 days',
+    checks:{ build:'passing', tests:'failing', coverage:72, lint:'passing' },
+    sheriff:{ reviewed:false, status:'flagged', uncaught:['3 unit tests failing — test coverage dropped from 79% to 72%','No integration tests ran — downstream payment flow not validated','jackson-datatype-money 1.3.0 carries a known High CVE — upgrade required before merge'] },
+    deps:[['added','jackson-datatype-money','1.3.0','1 high'],['upgraded','spring-security-web','5.6.1 → 5.8.4','fixes 1 high']],
+    notes:['Touches high-impact ledger code','Single owner on refund module for 14 months'], extra:['Security review required','Add a second reviewer'] },
+  { id:308, repo:'web-portal', title:'Upgrade React Router to v6.23', author:'J. Larsen', reviewers:['P. Mehta','K. Adeyemi'], files:9, add:88, del:71, level:'Low', score:21, firstReview:3, state:'Merged', age:'4 days',
+    checks:{ build:'passing', tests:'passing', coverage:88, lint:'passing' },
+    sheriff:{ reviewed:true, status:'approved', uncaught:[] },
+    deps:[['upgraded','react-router-dom','6.14.0 → 6.23.1','no known issues']], notes:[], extra:[] },
+  { id:305, repo:'data-pipeline', title:'Switch nightly load to incremental mode', author:'D. Petrov', reviewers:['H. Banerjee'], files:22, add:610, del:240, level:'High', score:84, firstReview:41, state:'Open', age:'5 days',
+    checks:{ build:'passing', tests:'passing', coverage:61, lint:'warning' },
+    sheriff:{ reviewed:false, status:'flagged', uncaught:['Coverage at 61% — largest change this quarter with the lowest coverage','Lint warnings in dags/ not addressed — 4 quality rule violations','First review took 41 hours — high-risk PR needs faster turnaround','pyyaml upgrade resolves a Critical CVE but no regression test added for the affected code path'] },
+    deps:[['upgraded','pyyaml','5.3 → 5.4','fixes 1 critical'],['added','tenacity','8.2.3','no known issues']],
+    notes:['Only 2 contributors on dags/ in 12 months','Largest change this quarter'], extra:['Add a second reviewer'] },
+  { id:302, repo:'auth-gateway', title:'Reduce token lifetime to 15 minutes', author:'T. Okafor', reviewers:['L. Novak'], files:4, add:36, del:12, level:'Medium', score:46, firstReview:6, state:'Merged', age:'6 days',
+    checks:{ build:'passing', tests:'passing', coverage:91, lint:'passing' },
+    sheriff:{ reviewed:true, status:'approved', uncaught:['Downstream services not formally notified of token lifetime change — may cause silent auth failures'] },
+    deps:[], notes:['Config change affects all downstream services'], extra:['Notify dependent teams'] },
+  { id:299, repo:'legacy-reports', title:'Patch date format in month-end export', author:'V. Hall', reviewers:[], files:2, add:9, del:4, level:'Medium', score:52, firstReview:null, state:'Open', age:'11 days',
+    checks:{ build:'failing', tests:'unknown', coverage:null, lint:'warning' },
+    sheriff:{ reviewed:false, status:'blocked', uncaught:['Build failing — PR should not be merged in current state','No reviewer assigned after 11 days open','Test suite did not run — no confidence in change correctness','1 critical CVE open in this repo (struts2-core) — repo needs triage before any merge'] },
+    deps:[], notes:['No reviewer assigned','Repo stale for 14 months','1 critical CVE open'], extra:['Assign a reviewer'] },
+  { id:296, repo:'mobile-app', title:'Dark mode for account screens', author:'N. Alvarez', reviewers:['Y. Tanaka'], files:18, add:380, del:140, level:'Low', score:24, firstReview:5, state:'Merged', age:'9 days',
+    checks:{ build:'passing', tests:'passing', coverage:84, lint:'passing' },
+    sheriff:{ reviewed:true, status:'approved', uncaught:[] },
+    deps:[], notes:[], extra:[] },
+  { id:293, repo:'infra-modules', title:'Add encryption default to database module', author:'M. Costa', reviewers:['R. Singh','L. Novak'], files:3, add:41, del:5, level:'Medium', score:39, firstReview:4, state:'Merged', age:'12 days',
+    checks:{ build:'passing', tests:'passing', coverage:79, lint:'passing' },
+    sheriff:{ reviewed:true, status:'approved', uncaught:['Existing databases will be force-replaced on next Terraform apply — rollback not straightforward'] },
+    deps:[], notes:['Existing databases will be replaced on next apply'], extra:['Plan review before apply'] },
+  { id:290, repo:'notif-service', title:'Retry failed SMS with backoff', author:'E. Fischer', reviewers:['T. Okafor'], files:7, add:150, del:20, level:'Low', score:27, firstReview:8, state:'Merged', age:'8 days',
+    checks:{ build:'passing', tests:'passing', coverage:82, lint:'passing' },
+    sheriff:{ reviewed:true, status:'approved', uncaught:[] },
+    deps:[['added','p-retry','6.2.0','no known issues']], notes:[], extra:[] }
+];
+
+const jenkinsJobs = [
+  { repo:'payments-service', job:'payments-service-ci', branch:'main', status:'failing', duration:'4m 12s', lastRun:'18 min ago', stages:[{n:'Checkout',s:'pass'},{n:'Build',s:'pass'},{n:'Unit Tests',s:'fail'},{n:'Integration Tests',s:'skip'},{n:'Deploy Staging',s:'skip'}], failCount:3, passCount:142, coverage:72, trend:'down' },
+  { repo:'auth-gateway', job:'auth-gateway-ci', branch:'main', status:'passing', duration:'2m 44s', lastRun:'1 hr ago', stages:[{n:'Checkout',s:'pass'},{n:'Build',s:'pass'},{n:'Unit Tests',s:'pass'},{n:'Integration Tests',s:'pass'},{n:'Deploy Staging',s:'pass'}], failCount:0, passCount:198, coverage:91, trend:'up' },
+  { repo:'web-portal', job:'web-portal-ci', branch:'main', status:'passing', duration:'6m 30s', lastRun:'32 min ago', stages:[{n:'Checkout',s:'pass'},{n:'Install',s:'pass'},{n:'Lint',s:'pass'},{n:'Unit Tests',s:'pass'},{n:'E2E Tests',s:'pass'},{n:'Build',s:'pass'}], failCount:0, passCount:310, coverage:88, trend:'stable' },
+  { repo:'data-pipeline', job:'data-pipeline-ci', branch:'main', status:'warning', duration:'9m 02s', lastRun:'2 hr ago', stages:[{n:'Checkout',s:'pass'},{n:'Lint',s:'warn'},{n:'Unit Tests',s:'pass'},{n:'Quality Checks',s:'warn'},{n:'Deploy',s:'pass'}], failCount:0, passCount:87, coverage:61, trend:'stable' },
+  { repo:'notif-service', job:'notif-service-ci', branch:'main', status:'passing', duration:'3m 18s', lastRun:'4 hr ago', stages:[{n:'Checkout',s:'pass'},{n:'Build',s:'pass'},{n:'Unit Tests',s:'pass'},{n:'Deploy Staging',s:'pass'}], failCount:0, passCount:156, coverage:82, trend:'up' },
+  { repo:'legacy-reports', job:'legacy-reports-ci', branch:'main', status:'failing', duration:'1m 05s', lastRun:'14 days ago', stages:[{n:'Checkout',s:'pass'},{n:'Build',s:'fail'},{n:'Unit Tests',s:'skip'},{n:'Deploy',s:'skip'}], failCount:11, passCount:4, coverage:null, trend:'down' },
+  { repo:'mobile-app', job:'mobile-app-ci', branch:'main', status:'passing', duration:'8m 55s', lastRun:'45 min ago', stages:[{n:'Checkout',s:'pass'},{n:'Build',s:'pass'},{n:'Unit Tests',s:'pass'},{n:'UI Tests',s:'pass'},{n:'Deploy',s:'pass'}], failCount:0, passCount:224, coverage:84, trend:'stable' },
+  { repo:'infra-modules', job:'infra-modules-ci', branch:'main', status:'passing', duration:'1m 48s', lastRun:'3 hr ago', stages:[{n:'Checkout',s:'pass'},{n:'Validate',s:'pass'},{n:'Plan',s:'pass'},{n:'Apply (staging)',s:'pass'}], failCount:0, passCount:92, coverage:null, trend:'stable' }
+];
+
+/* ---------- Helpers ---------- */
+const $ = s => document.querySelector(s);
+const healthColor = h => h >= 70 ? 'var(--good)' : h >= 50 ? 'var(--warn)' : 'var(--bad)';
+const healthClass = h => h >= 70 ? 'good' : h >= 50 ? 'warn' : 'bad';
+const levelClass = l => l === 'High' ? 'bad' : l === 'Medium' ? 'warn' : 'good';
+const sevClass = s => s === 'Critical' || s === 'High' ? 'bad' : s === 'Medium' ? 'warn' : 'good';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sum = (a, f) => a.reduce((t, x) => t + f(x), 0);
+
+let state = { view:'overview', repo:null, mr:null, mrFilter:'All', pr:null, prFilter:'All', jenkinsRepo:null };
+
+function go(view, extra = {}) {
+  state = Object.assign({}, state, { view, repo:null, mr:null, pr:null, jenkinsRepo:null }, extra);
+  document.querySelectorAll('.nav button').forEach(b =>
+    b.toggleAttribute('aria-current', b.dataset.view === (state.repo ? 'repos' : state.mr ? 'mrs' : state.pr ? 'prs' : state.jenkinsRepo ? 'jenkins' : view)));
+  document.querySelectorAll('.nav button').forEach(b => {
+    if (b.hasAttribute('aria-current')) b.setAttribute('aria-current', 'page');
+  });
+  render();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Views ---------- */
+function viewOverview() {
+  const totalVuln = sum(repos, r => r.vuln);
+  const single = sum(repos, r => r.single);
+  const avgHealth = Math.round(sum(repos, r => r.health) / repos.length);
+  const reviewed = mrs.filter(m => m.firstReview !== null);
+  const medianFirst = reviewed.map(m => m.firstReview).sort((a,b)=>a-b)[Math.floor(reviewed.length/2)];
+  const risky = [...repos].sort((a,b) => a.health - b.health).slice(0,4);
+  return `
+    <h1>Overview</h1>
+    <p class="lede">Dependency risk, code ownership and review flow across the pilot repositories. Select a repository in the risk map to see its profile.</p>
+    <div class="grid g4 mb">
+      <div class="panel kpi"><div class="n">${avgHealth}</div><div class="l">Average health score (out of 100)</div><div class="d down-good">+3 since last scan</div></div>
+      <div class="panel kpi"><div class="n">${totalVuln}</div><div class="l">Vulnerable dependencies</div><div class="d up-bad">2 critical need action</div></div>
+      <div class="panel kpi"><div class="n">${single}</div><div class="l">Files with a single owner</div><div class="d">across ${repos.filter(r=>r.bus===1).length} repos with bus factor 1</div></div>
+      <div class="panel kpi"><div class="n">${medianFirst}h</div><div class="l">Median time to first review</div><div class="d down-good">was 14h a month ago</div></div>
+    </div>
+    <div class="grid g4 mb">
+      <div class="panel kpi"><div class="n" style="color:var(--good)">${jenkinsJobs.filter(j=>j.status==='passing').length}</div><div class="l">CI pipelines passing</div><div class="d">of ${jenkinsJobs.length} total pipelines</div></div>
+      <div class="panel kpi"><div class="n" style="color:var(--bad)">${jenkinsJobs.filter(j=>j.status==='failing').length}</div><div class="l">CI pipelines failing</div><div class="d up-bad">needs immediate action</div></div>
+      <div class="panel kpi"><div class="n">${prs.filter(p=>p.state==='Open').length}</div><div class="l">Open pull requests</div><div class="d up-bad">${prs.filter(p=>p.state==='Open'&&p.level==='High').length} high risk</div></div>
+      <div class="panel kpi"><div class="n">${prs.filter(p=>p.firstReview===null&&p.state==='Open').length}</div><div class="l">PRs awaiting first review</div><div class="d up-bad">no reviewer assigned</div></div>
+    </div>
+    <div class="grid g2 mb">
+      <section class="panel" aria-labelledby="rm">
+        <h2 id="rm">Risk map</h2>
+        <p class="small muted" style="margin-top:-6px">Repositories further right are shared by more people. Higher means more vulnerable dependencies. Repos in the top left need attention first.</p>
+        <div id="radar">${radarSVG()}</div>
+        <div class="legend"><span><b style="background:var(--good)"></b>Health 70+</span><span><b style="background:var(--warn)"></b>50 to 69</span><span><b style="background:var(--bad)"></b>Below 50</span><span>Bubble size: outdated dependencies</span></div>
+      </section>
+      <section class="panel" aria-labelledby="tr">
+        <h2 id="tr">Needs attention</h2>
+        <table><tbody>
+          ${risky.map(r => `<tr class="click" tabindex="0" data-repo="${r.id}">
+            <td><strong>${r.id}</strong><div class="small muted">${r.vuln} vulnerable · bus factor ${r.bus}</div></td>
+            <td class="num"><span class="pill ${healthClass(r.health)}">${r.health}</span></td></tr>`).join('')}
+        </tbody></table>
+        <h2 style="margin-top:20px">Open merge requests</h2>
+        <table><tbody>
+          ${mrs.filter(m=>m.state==='Open').map(m => `<tr class="click" tabindex="0" data-mr="${m.id}">
+            <td>#${m.id} ${esc(m.title)}<div class="small muted">${m.repo}</div></td>
+            <td class="num"><span class="pill ${levelClass(m.level)}">${m.level}</span></td></tr>`).join('')}
+        </tbody></table>
+      </section>
+    </div>`;
+}
+
+function radarSVG() {
+  const W = 620, H = 380, L = 56, R = 20, T = 20, B = 52;
+  const px = b => L + ((b - 0.5) / 4) * (W - L - R);
+  const py = v => H - B - (v / 9) * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Risk map of repositories by bus factor and vulnerable dependencies">`;
+  for (let v = 0; v <= 8; v += 2) s += `<line x1="${L}" x2="${W-R}" y1="${py(v)}" y2="${py(v)}" stroke="var(--line)"/><text x="${L-10}" y="${py(v)+4}" text-anchor="end">${v}</text>`;
+  for (let b = 1; b <= 4; b++) s += `<text x="${px(b)}" y="${H-B+20}" text-anchor="middle">${b}</text>`;
+  s += `<text x="${(L+W-R)/2}" y="${H-8}" text-anchor="middle">Bus factor (people who know the code)</text>`;
+  s += `<text transform="translate(14 ${(T+H-B)/2}) rotate(-90)" text-anchor="middle">Vulnerable dependencies</text>`;
+  s += `<rect x="${L}" y="${T}" width="${px(1.5)-L}" height="${py(3)-T}" fill="var(--bad-soft)" opacity=".55"/>`;
+  const offsets = { 'payments-service':[0,-1], 'data-pipeline':[0,0], 'legacy-reports':[0,0], 'web-portal':[0,0], 'notif-service':[0,0] };
+  repos.forEach(r => {
+    const rad = 7 + Math.min(r.outdated, 32) * 0.45;
+    let x = px(r.bus), y = py(r.vuln);
+    if (r.id === 'payments-service') x -= 0; 
+    if (r.id === 'data-pipeline') x += 0;
+    s += `<g class="pt" tabindex="0" data-repo="${r.id}" role="button" aria-label="${r.id}, health ${r.health}">
+      <circle cx="${x}" cy="${y}" r="${rad}" fill="${healthColor(r.health)}" fill-opacity=".8" stroke="var(--panel)" stroke-width="2"/>
+      <text class="lbl" x="${x + rad + 5}" y="${y + 4}">${r.id}</text></g>`;
+  });
+  return s + '</svg>';
+}
+
+function viewRepos() {
+  return `
+    <h1>Repositories</h1>
+    <p class="lede">Every scanned repository with its health score. Select a row for the full profile.</p>
+    <div class="panel tablewrap"><table>
+      <thead><tr><th>Repository</th><th>Team</th><th>Language</th><th>Health</th><th class="num">Vulnerable</th><th class="num">Outdated</th><th class="num">Bus factor</th><th>Last commit</th></tr></thead>
+      <tbody>${repos.map(r => `<tr class="click" tabindex="0" data-repo="${r.id}">
+        <td><strong>${r.id}</strong></td><td>${r.team}</td><td>${r.lang}</td>
+        <td><div style="display:flex;gap:8px;align-items:center"><div class="healthbar"><i style="width:${r.health}%;background:${healthColor(r.health)}"></i></div>${r.health}</div></td>
+        <td class="num">${r.vuln}</td><td class="num">${r.outdated}</td><td class="num">${r.bus}</td>
+        <td>${r.last}${r.stale ? ' <span class="pill bad">stale</span>' : ''}</td></tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+function viewRepo(id) {
+  const r = repos.find(x => x.id === id);
+  const deps = depsByRepo[id] || defaultDeps;
+  const rm = mrs.filter(m => m.repo === id);
+  return `
+    <button class="back" data-back="repos">Back to repositories</button>
+    <h1>${r.id} <span class="pill ${healthClass(r.health)}" style="vertical-align:middle">Health ${r.health}</span></h1>
+    <p class="lede">${esc(r.summary)}</p>
+    <div class="grid g2e mb">
+      <section class="panel"><h2>Repository summary</h2>
+        <dl class="kv">
+          <dt>Team</dt><dd>${r.team}</dd>
+          <dt>Main language</dt><dd>${r.lang}</dd>
+          <dt>Tech stack</dt><dd>${r.stack.map(s=>`<span class="pill info" style="margin:0 4px 4px 0">${esc(s)}</span>`).join('')}</dd>
+          <dt>Main modules</dt><dd>${r.modules.join(', ')}</dd>
+          <dt>Last commit</dt><dd>${r.last}</dd>
+          <dt>Release cadence</dt><dd>${r.release}</dd>
+          <dt>Single-owner files</dt><dd>${r.single}</dd>
+          <dt>Bus factor</dt><dd>${r.bus} ${r.bus === 1 ? '<span class="pill bad">high risk</span>' : r.bus === 2 ? '<span class="pill warn">watch</span>' : '<span class="pill good">healthy</span>'}</dd>
+        </dl>
+      </section>
+      <section class="panel"><h2>Who knows this code</h2>
+        <p class="small muted" style="margin-top:-6px">Share of commits over the last 12 months.</p>
+        ${r.owners.map(o => `<div class="bar-row"><span>${esc(o[0])}</span><div class="bar"><i style="width:${o[1]}%"></i></div><span class="small">${o[1]}%</span></div>`).join('')}
+      </section>
+    </div>
+    <section class="panel mb tablewrap"><h2>Dependencies needing attention</h2>
+      <table><thead><tr><th>Package</th><th>Current</th><th>Latest</th><th>Advisory</th><th>Severity</th><th>License</th></tr></thead>
+      <tbody>${deps.map(d => `<tr><td><strong>${d[0]}</strong></td><td>${d[1]}</td><td>${d[2]}</td><td>${d[3]}</td>
+        <td>${d[4] ? `<span class="pill ${sevClass(d[4])}">${d[4]}</span>` : '<span class="muted">None</span>'}</td><td>${d[5]}</td></tr>`).join('')}</tbody></table>
+    </section>
+    <section class="panel tablewrap"><h2>Recent merge requests</h2>
+      ${rm.length ? `<table><thead><tr><th>Merge request</th><th>Author</th><th>Risk</th><th>State</th></tr></thead><tbody>
+        ${rm.map(m => `<tr class="click" tabindex="0" data-mr="${m.id}"><td>#${m.id} ${esc(m.title)}</td><td>${m.author}</td><td><span class="pill ${levelClass(m.level)}">${m.level}</span></td><td>${m.state}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="muted">No merge requests in the last 30 days.</p>'}
+    </section>`;
+}
+
+function viewMRs() {
+  const f = state.mrFilter;
+  const list = mrs.filter(m => f === 'All' || m.level === f || (f === 'Open' && m.state === 'Open'));
+  return `
+    <h1>Merge requests</h1>
+    <p class="lede">Each merge request gets a risk score from its dependency changes, the code it touches and how many people know that code.</p>
+    <div class="toolbar" role="group" aria-label="Filter merge requests">
+      ${['All','Open','High','Medium','Low'].map(x => `<button class="chip" data-filter="${x}" aria-pressed="${f===x}">${x}</button>`).join('')}
+    </div>
+    <div class="panel tablewrap"><table>
+      <thead><tr><th>Merge request</th><th>Repository</th><th>Author</th><th class="num">Files</th><th class="num">Size</th><th>Risk</th><th>First review</th><th>State</th></tr></thead>
+      <tbody>${list.map(m => `<tr class="click" tabindex="0" data-mr="${m.id}">
+        <td><strong>#${m.id}</strong> ${esc(m.title)}</td><td>${m.repo}</td><td>${m.author}</td>
+        <td class="num">${m.files}</td><td class="num">+${m.add} −${m.del}</td>
+        <td><span class="pill ${levelClass(m.level)}">${m.level} · ${m.score}</span></td>
+        <td>${m.firstReview === null ? '<span class="pill bad">None yet</span>' : m.firstReview + 'h'}</td><td>${m.state}</td></tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+function viewMR(id) {
+  const m = mrs.find(x => x.id === id);
+  return `
+    <button class="back" data-back="mrs">Back to merge requests</button>
+    <h1>#${m.id} ${esc(m.title)}</h1>
+    <p class="lede">${m.repo} · opened by ${m.author} ${m.age} ago · ${m.state}</p>
+    <div class="grid g2e mb">
+      <section class="panel"><h2>Report</h2>
+        <dl class="kv">
+          <dt>Risk</dt><dd><span class="pill ${levelClass(m.level)}">${m.level} · ${m.score}/100</span></dd>
+          <dt>Author</dt><dd>${m.author}</dd>
+          <dt>Reviewers</dt><dd>${m.reviewers.length ? m.reviewers.join(', ') : '<span class="pill bad">None assigned</span>'}</dd>
+          <dt>Files changed</dt><dd>${m.files}</dd>
+          <dt>Lines</dt><dd>+${m.add} −${m.del}</dd>
+          <dt>First review</dt><dd>${m.firstReview === null ? 'Waiting' : m.firstReview + ' hours after opening'}</dd>
+        </dl>
+      </section>
+      <section class="panel"><h2>Dependency changes</h2>
+        ${m.deps.length ? `<table><tbody>${m.deps.map(d => `<tr><td><span class="pill info">${d[0]}</span></td><td><strong>${d[1]}</strong><div class="small muted">${d[2]}</div></td><td class="small">${d[3]}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No dependency changes in this merge request.</p>'}
+      </section>
+    </div>
+    <section class="panel"><h2>Comment the bot posts on this merge request</h2>
+      <div class="botbox">
+        <strong>Code health check · ${m.level} risk (${m.score}/100)</strong>
+        <div style="margin-top:8px"><em>Dependency changes</em></div>
+        <ul>${m.deps.length ? m.deps.map(d => `<li>${d[0]} <code>${d[1]}</code>: ${d[2]} (${d[3]})</li>`).join('') : '<li>None</li>'}</ul>
+        <div><em>Code ownership and context</em></div>
+        <ul>${m.notes.length ? m.notes.map(n => `<li>${esc(n)}</li>`).join('') : '<li>No concerns found</li>'}</ul>
+        <div><em>Suggested reviewers</em></div>
+        <ul><li>${suggest(m)}</li></ul>
+        <div><em>Checklist</em></div>
+        <div class="check on"><span class="box" style="visibility:hidden"></span><span class="small muted">Items appear only when the findings call for them.</span></div>
+        ${m.extra.length ? m.extra.map(e => `<div class="check on"><span class="box"></span><span>${e}</span></div>`).join('') : '<div class="check"><span class="box"></span><span>Standard review</span></div>'}
+        <div class="small muted" style="margin-top:10px">Warn-only mode: this check does not block merging.</div>
+      </div>
+    </section>`;
+}
+function suggest(m) {
+  const r = repos.find(x => x.id === m.repo);
+  const names = r.owners.map(o => o[0]).filter(n => n !== m.author && !n.startsWith('('));
+  return names.slice(0,2).join(' and ') || 'No suggestion available';
+}
+
+function viewPeople() {
+  const max = Math.max(...reviewLoad.map(x => x[1]));
+  return `
+    <h1>Ownership &amp; reviews</h1>
+    <p class="lede">Where knowledge is concentrated and where review work piles up. Use this to spread knowledge and balance review load across the team.</p>
+    <div class="note mb">These views describe team health, not individual performance. Commit counts and review counts are not a measure of someone's contribution.</div>
+    <div class="grid g2e">
+      <section class="panel"><h2>Ownership concentration by repository</h2>
+        <p class="small muted" style="margin-top:-6px">Share of commits by the top contributor. Lower is healthier.</p>
+        ${[...repos].sort((a,b) => b.owners[0][1]-a.owners[0][1]).map(r => `
+          <div class="bar-row" style="grid-template-columns:130px 1fr 44px"><span>${r.id}</span>
+          <div class="bar"><i style="width:${r.owners[0][1]}%;background:${r.owners[0][1] > 70 ? 'var(--bad)' : r.owners[0][1] > 50 ? 'var(--warn)' : 'var(--good)'}"></i></div>
+          <span class="small">${r.owners[0][1]}%</span></div>`).join('')}
+      </section>
+      <section class="panel"><h2>Review load, last 30 days</h2>
+        <p class="small muted" style="margin-top:-6px">Reviews completed. Large gaps suggest bottlenecks.</p>
+        ${reviewLoad.map(x => `<div class="bar-row"><span>${x[0]}</span><div class="bar"><i style="width:${x[1]/max*100}%"></i></div><span class="small">${x[1]}</span></div>`).join('')}
+      </section>
+    </div>
+    <section class="panel mt" style="margin-top:16px"><h2>Suggested actions</h2>
+      <ul style="margin:0;padding-left:18px">
+        <li><strong>payments-service</strong> and <strong>data-pipeline</strong>: one person holds more than 70% of commits. Pair a second developer on the next two merge requests.</li>
+        <li><strong>legacy-reports</strong>: no active owner team and critical vulnerabilities open. Decide whether to retire, migrate or assign an owner.</li>
+        <li>Review load is uneven: three people complete more than half of all reviews. Rotate reviewer suggestions to spread the work.</li>
+      </ul>
+    </section>`;
+}
+
+function sheriffClass(s) { return s === 'approved' ? 'good' : s === 'flagged' ? 'warn' : s === 'blocked' ? 'bad' : 'info'; }
+function sheriffLabel(p) {
+  if (!p.sheriff.reviewed) return p.sheriff.status === 'blocked' ? '🚫 Blocked' : p.sheriff.uncaught.length ? '⚠ Flagged' : '⏳ Pending';
+  return p.sheriff.uncaught.length ? '✓ Reviewed — warnings' : '✓ Approved';
+}
+function ciColor(s) { return s === 'passing' ? 'var(--good)' : s === 'failing' ? 'var(--bad)' : 'var(--warn)'; }
+function ciClass(s) { return s === 'passing' ? 'good' : s === 'failing' ? 'bad' : 'warn'; }
+function stageIcon(s) { return s === 'pass' ? '✓' : s === 'fail' ? '✕' : s === 'warn' ? '⚠' : '–'; }
+function stageColor(s) { return s === 'pass' ? 'var(--good)' : s === 'fail' ? 'var(--bad)' : s === 'warn' ? 'var(--warn)' : 'var(--muted)'; }
+function checkClass(s) { return s === 'passing' ? 'good' : s === 'failing' ? 'bad' : s === 'warning' ? 'warn' : 'info'; }
+
+function viewJenkins() {
+  const failing = jenkinsJobs.filter(j => j.status === 'failing').length;
+  const passing = jenkinsJobs.filter(j => j.status === 'passing').length;
+  const warning = jenkinsJobs.filter(j => j.status === 'warning').length;
+  return `
+    <h1>Jenkins CI</h1>
+    <p class="lede">Build health across all repositories. Failing pipelines and coverage regressions need immediate attention.</p>
+    <div class="grid g4 mb">
+      <div class="panel kpi"><div class="n" style="color:var(--good)">${passing}</div><div class="l">Pipelines passing</div><div class="d down-good">of ${jenkinsJobs.length} total</div></div>
+      <div class="panel kpi"><div class="n" style="color:var(--bad)">${failing}</div><div class="l">Pipelines failing</div><div class="d up-bad">needs immediate action</div></div>
+      <div class="panel kpi"><div class="n" style="color:var(--warn)">${warning}</div><div class="l">Pipelines with warnings</div><div class="d">lint or quality issues</div></div>
+      <div class="panel kpi"><div class="n">${Math.round(jenkinsJobs.filter(j=>j.coverage!==null).reduce((t,j)=>t+j.coverage,0)/jenkinsJobs.filter(j=>j.coverage!==null).length)}%</div><div class="l">Average test coverage</div><div class="d">across repos with coverage</div></div>
+    </div>
+    <div class="panel tablewrap mb">
+      <h2>All pipelines</h2>
+      <table>
+        <thead><tr><th>Repository</th><th>Job</th><th>Status</th><th>Last run</th><th>Duration</th><th class="num">Coverage</th><th>Trend</th><th>Stages</th></tr></thead>
+        <tbody>
+          ${jenkinsJobs.map(j => `<tr class="click" tabindex="0" data-jenkins="${j.repo}">
+            <td><strong>${j.repo}</strong></td>
+            <td class="small muted">${j.job}</td>
+            <td><span class="pill ${ciClass(j.status)}">${j.status}</span></td>
+            <td class="small">${j.lastRun}</td>
+            <td class="small">${j.duration}</td>
+            <td class="num small">${j.coverage !== null ? j.coverage + '%' : '<span class="muted">—</span>'}</td>
+            <td class="small">${j.trend === 'up' ? '<span style="color:var(--good)">↑ improving</span>' : j.trend === 'down' ? '<span style="color:var(--bad)">↓ degrading</span>' : '<span class="muted">→ stable</span>'}</td>
+            <td>${j.stages.map(s => `<span title="${s.n}" style="color:${stageColor(s.s)};font-weight:600;margin-right:4px">${stageIcon(s.s)}</span>`).join('')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <section class="panel"><h2>Suggested actions</h2>
+      <ul style="margin:0;padding-left:18px">
+        <li><strong>payments-service</strong>: 3 unit tests failing. Pipeline has not fully passed in 2 days. Assign to S. Iyer to investigate before the next merge.</li>
+        <li><strong>legacy-reports</strong>: build has been failing for 14 days. Pipeline is effectively dead. Decide whether to restore CI or retire the repository.</li>
+        <li><strong>data-pipeline</strong>: lint and quality check warnings accumulating. Coverage at 61% and declining. Schedule a quality sprint before the next major change.</li>
+      </ul>
+    </section>`;
+}
+
+function viewJenkinsRepo(repoId) {
+  const j = jenkinsJobs.find(x => x.repo === repoId);
+  if (!j) return '';
+  return `
+    <button class="back" data-back="jenkins">Back to Jenkins CI</button>
+    <h1>${j.repo} <span class="pill ${ciClass(j.status)}" style="vertical-align:middle">${j.status}</span></h1>
+    <p class="lede">Job: ${j.job} · Branch: ${j.branch} · Last run ${j.lastRun} · Duration ${j.duration}</p>
+    <div class="grid g2e mb">
+      <section class="panel"><h2>Pipeline stages</h2>
+        <table><tbody>
+          ${j.stages.map(s => `<tr>
+            <td style="color:${stageColor(s.s)};font-size:18px;width:28px">${stageIcon(s.s)}</td>
+            <td><strong>${s.n}</strong></td>
+            <td><span class="pill ${s.s === 'pass' ? 'good' : s.s === 'fail' ? 'bad' : s.s === 'warn' ? 'warn' : 'info'}">${s.s === 'pass' ? 'passed' : s.s === 'fail' ? 'failed' : s.s === 'warn' ? 'warning' : 'skipped'}</span></td>
+          </tr>`).join('')}
+        </tbody></table>
+      </section>
+      <section class="panel"><h2>Test summary</h2>
+        <dl class="kv">
+          <dt>Passing tests</dt><dd style="color:var(--good);font-weight:700">${j.passCount}</dd>
+          <dt>Failing tests</dt><dd style="color:${j.failCount > 0 ? 'var(--bad)' : 'var(--good)'};font-weight:700">${j.failCount}</dd>
+          <dt>Coverage</dt><dd>${j.coverage !== null ? `<div class="healthbar" style="width:120px;display:inline-block;vertical-align:middle;margin-right:8px"><i style="width:${j.coverage}%;background:${j.coverage >= 80 ? 'var(--good)' : j.coverage >= 60 ? 'var(--warn)' : 'var(--bad)'}"></i></div>${j.coverage}%` : '<span class="muted">Not configured</span>'}</dd>
+          <dt>Trend</dt><dd>${j.trend === 'up' ? '<span style="color:var(--good)">↑ Improving</span>' : j.trend === 'down' ? '<span style="color:var(--bad)">↓ Degrading</span>' : '<span class="muted">→ Stable</span>'}</dd>
+          <dt>Branch</dt><dd>${j.branch}</dd>
+          <dt>Last run</dt><dd>${j.lastRun}</dd>
+          <dt>Duration</dt><dd>${j.duration}</dd>
+        </dl>
+      </section>
+    </div>`;
+}
+
+function viewPRs() {
+  const f = state.prFilter || 'All';
+  const list = prs.filter(p => f === 'All' || p.level === f || (f === 'Open' && p.state === 'Open') || (f === 'Failing' && p.checks.build === 'failing'));
+  return `
+    <h1>Pull requests</h1>
+    <p class="lede">Every open and recently merged pull request with its risk score, CI check status and review coverage.</p>
+    <div class="toolbar" role="group" aria-label="Filter pull requests">
+      ${['All','Open','High','Medium','Low','Failing'].map(x => `<button class="chip" data-prfilter="${x}" aria-pressed="${f===x}">${x}</button>`).join('')}
+    </div>
+    <div class="panel tablewrap"><table>
+      <thead><tr><th>Pull request</th><th>Repository</th><th>Author</th><th class="num">Files</th><th class="num">Size</th><th>Risk</th><th>Build</th><th>Tests</th><th class="num">Coverage</th><th>First review</th><th>Code Sheriff</th><th>Uncaught errors</th><th>State</th></tr></thead>
+      <tbody>${list.map(p => `<tr class="click" tabindex="0" data-pr="${p.id}">
+        <td><strong>#${p.id}</strong> ${esc(p.title)}</td>
+        <td>${p.repo}</td>
+        <td>${p.author}</td>
+        <td class="num">${p.files}</td>
+        <td class="num">+${p.add} −${p.del}</td>
+        <td><span class="pill ${levelClass(p.level)}">${p.level} · ${p.score}</span></td>
+        <td><span class="pill ${checkClass(p.checks.build)}">${p.checks.build}</span></td>
+        <td><span class="pill ${checkClass(p.checks.tests)}">${p.checks.tests}</span></td>
+        <td class="num small">${p.checks.coverage !== null ? p.checks.coverage + '%' : '<span class="muted">—</span>'}</td>
+        <td>${p.firstReview === null ? '<span class="pill bad">None yet</span>' : p.firstReview + 'h'}</td>
+        <td><span class="pill ${sheriffClass(p.sheriff.status)}">${sheriffLabel(p)}</span></td>
+        <td class="small">${p.sheriff.uncaught.length ? `<span style="color:var(--bad);font-weight:600">${p.sheriff.uncaught.length} issue${p.sheriff.uncaught.length > 1 ? 's' : ''}</span>` : '<span class="muted">None</span>'}</td>
+        <td>${p.state}</td>
+      </tr>`).join('')}
+      </tbody></table></div>`;
+}
+
+function viewPR(id) {
+  const p = prs.find(x => x.id === id);
+  if (!p) return '';
+  return `
+    <button class="back" data-back="prs">Back to pull requests</button>
+    <h1>#${p.id} ${esc(p.title)}</h1>
+    <p class="lede">${p.repo} · opened by ${p.author} ${p.age} ago · ${p.state}</p>
+    <div class="grid g2e mb">
+      <section class="panel"><h2>Report</h2>
+        <dl class="kv">
+          <dt>Risk</dt><dd><span class="pill ${levelClass(p.level)}">${p.level} · ${p.score}/100</span></dd>
+          <dt>Author</dt><dd>${p.author}</dd>
+          <dt>Reviewers</dt><dd>${p.reviewers.length ? p.reviewers.join(', ') : '<span class="pill bad">None assigned</span>'}</dd>
+          <dt>Files changed</dt><dd>${p.files}</dd>
+          <dt>Lines</dt><dd>+${p.add} −${p.del}</dd>
+          <dt>First review</dt><dd>${p.firstReview === null ? 'Waiting' : p.firstReview + ' hours after opening'}</dd>
+        </dl>
+      </section>
+      <section class="panel"><h2>CI checks</h2>
+        <dl class="kv">
+          <dt>Build</dt><dd><span class="pill ${checkClass(p.checks.build)}">${p.checks.build}</span></dd>
+          <dt>Tests</dt><dd><span class="pill ${checkClass(p.checks.tests)}">${p.checks.tests}</span></dd>
+          <dt>Lint</dt><dd><span class="pill ${checkClass(p.checks.lint)}">${p.checks.lint}</span></dd>
+          <dt>Coverage</dt><dd>${p.checks.coverage !== null ? `<div class="healthbar" style="width:100px;display:inline-block;vertical-align:middle;margin-right:8px"><i style="width:${p.checks.coverage}%;background:${p.checks.coverage >= 80 ? 'var(--good)' : p.checks.coverage >= 60 ? 'var(--warn)' : 'var(--bad)'}"></i></div>${p.checks.coverage}%` : '<span class="muted">Not configured</span>'}</dd>
+        </dl>
+      </section>
+    </div>
+    <section class="panel mb" style="border-left: 4px solid ${p.sheriff.status === 'approved' && !p.sheriff.uncaught.length ? 'var(--good)' : p.sheriff.status === 'blocked' ? 'var(--bad)' : 'var(--warn)'}">
+      <h2 style="display:flex;align-items:center;gap:10px">
+        🔎 Code Sheriff
+        <span class="pill ${sheriffClass(p.sheriff.status)}" style="font-size:13px">${sheriffLabel(p)}</span>
+      </h2>
+      <p class="small muted" style="margin-top:-6px">Automated review pass. Flags issues that passed CI but may still block safe merging.</p>
+      ${p.sheriff.uncaught.length ? `
+        <div style="margin-bottom:8px"><strong>Uncaught issues (${p.sheriff.uncaught.length})</strong></div>
+        ${p.sheriff.uncaught.map(e => `
+          <div style="display:flex;gap:10px;align-items:flex-start;margin:8px 0;padding:10px 12px;background:var(--bad-soft);border-radius:6px;border-left:3px solid var(--bad)">
+            <span style="color:var(--bad);font-size:16px;flex:none">✕</span>
+            <span style="font-size:14px">${esc(e)}</span>
+          </div>`).join('')}
+      ` : `
+        <div style="display:flex;gap:10px;align-items:center;padding:10px 12px;background:var(--good-soft);border-radius:6px">
+          <span style="color:var(--good);font-size:16px">✓</span>
+          <span style="font-size:14px">No uncaught issues found. This pull request looks clean.</span>
+        </div>
+      `}
+      ${!p.sheriff.reviewed ? `<p class="small muted" style="margin-top:10px">Sheriff review pending — automated scan only. A human review is still required before merge.</p>` : ''}
+    </section>
+    <div class="grid g2e mb">
+      <section class="panel"><h2>Dependency changes</h2>
+        ${p.deps.length ? `<table><tbody>${p.deps.map(d => `<tr><td><span class="pill info">${d[0]}</span></td><td><strong>${d[1]}</strong><div class="small muted">${d[2]}</div></td><td class="small">${d[3]}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No dependency changes in this pull request.</p>'}
+      </section>
+      <section class="panel"><h2>Ownership notes</h2>
+        ${p.notes.length ? `<ul style="margin:0;padding-left:18px">${p.notes.map(n => `<li style="margin:6px 0">${esc(n)}</li>`).join('')}</ul>` : '<p class="muted">No ownership concerns.</p>'}
+      </section>
+    </div>
+    <section class="panel"><h2>Comment the bot posts on this pull request</h2>
+      <div class="botbox">
+        <strong>Code health check · ${p.level} risk (${p.score}/100)</strong>
+        <div style="margin-top:8px"><em>Code Sheriff · ${sheriffLabel(p)}</em></div>
+        <ul>${p.sheriff.uncaught.length ? p.sheriff.uncaught.map(e => `<li>${esc(e)}</li>`).join('') : '<li>No uncaught issues found</li>'}</ul>
+        <div><em>CI status</em></div>
+        <ul>
+          <li>Build: ${p.checks.build}</li>
+          <li>Tests: ${p.checks.tests}</li>
+          <li>Lint: ${p.checks.lint}</li>
+          ${p.checks.coverage !== null ? `<li>Coverage: ${p.checks.coverage}%</li>` : ''}
+        </ul>
+        <div><em>Dependency changes</em></div>
+        <ul>${p.deps.length ? p.deps.map(d => `<li>${d[0]} <code>${d[1]}</code>: ${d[2]} (${d[3]})</li>`).join('') : '<li>None</li>'}</ul>
+        <div><em>Code ownership and context</em></div>
+        <ul>${p.notes.length ? p.notes.map(n => `<li>${esc(n)}</li>`).join('') : '<li>No concerns found</li>'}</ul>
+        <div><em>Suggested reviewers</em></div>
+        <ul><li>${suggestPR(p)}</li></ul>
+        <div><em>Checklist</em></div>
+        ${p.extra.length ? p.extra.map(e => `<div class="check on"><span class="box"></span><span>${e}</span></div>`).join('') : '<div class="check"><span class="box"></span><span>Standard review</span></div>'}
+        <div class="small muted" style="margin-top:10px">Warn-only mode: this check does not block merging.</div>
+      </div>
+    </section>`;
+}
+
+function suggestPR(p) {
+  const r = repos.find(x => x.id === p.repo);
+  const names = r ? r.owners.map(o => o[0]).filter(n => n !== p.author && !n.startsWith('(')) : [];
+  return names.slice(0,2).join(' and ') || 'No suggestion available';
+}
+
+/* ---------- Render + events ---------- */
+function render() {
+  let html;
+  if (state.jenkinsRepo) html = viewJenkinsRepo(state.jenkinsRepo);
+  else if (state.pr) html = viewPR(state.pr);
+  else if (state.repo) html = viewRepo(state.repo);
+  else if (state.mr) html = viewMR(state.mr);
+  else if (state.view === 'repos') html = viewRepos();
+  else if (state.view === 'mrs') html = viewMRs();
+  else if (state.view === 'prs') html = viewPRs();
+  else if (state.view === 'jenkins') html = viewJenkins();
+  else if (state.view === 'people') html = viewPeople();
+  else html = viewOverview();
+  $('#main').innerHTML = html;
+}
+
+document.addEventListener('click', e => {
+  const nav = e.target.closest('.nav button');
+  if (nav) return go(nav.dataset.view);
+  const back = e.target.closest('[data-back]');
+  if (back) return go(back.dataset.back);
+  const filt = e.target.closest('[data-filter]');
+  if (filt) { state.mrFilter = filt.dataset.filter; return render(); }
+  const prfilt = e.target.closest('[data-prfilter]');
+  if (prfilt) { state.prFilter = prfilt.dataset.prfilter; return render(); }
+  const r = e.target.closest('[data-repo]');
+  if (r) return go('repos', { repo: r.dataset.repo });
+  const m = e.target.closest('[data-mr]');
+  if (m) return go('mrs', { mr: Number(m.dataset.mr) });
+  const p = e.target.closest('[data-pr]');
+  if (p) { state.pr = Number(p.dataset.pr); state.jenkinsRepo = null; return render(); }
+  const j = e.target.closest('[data-jenkins]');
+  if (j) { state.jenkinsRepo = j.dataset.jenkins; state.pr = null; return render(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const t = e.target.closest('[data-repo],[data-mr]');
+  if (t && t.tagName !== 'BUTTON') { e.preventDefault(); t.click(); }
+});
+
+go('overview');
+</script>
+</body>
+</html>
